@@ -114,7 +114,7 @@
   <div class="legend">
     <span class="leg"><span class="ldot" style="background:var(--green-dark)"></span>Droog</span>
     <span class="leg"><span class="ldot" style="background:var(--yellow-dark)"></span>Minimaal</span>
-    <span class="leg"><span class="ldot" style="background:var(--red-dark)"></span>Helaas</span>
+    <span class="leg"><span class="ldot" style="background:var(--red-dark)"></span>Niet droog</span>
   </div>
 
   <div id="calView">
@@ -162,7 +162,7 @@ const db = getFirestore(fbApp);
 const ST = [
   { key:'droog',    label:'Droog',    fill:'#C0DD97', dark:'#3B6D11' },
   { key:'minimaal', label:'Minimaal', fill:'#FAC775', dark:'#BA7517' },
-  { key:'helaas',   label:'Helaas',   fill:'#F7C1C1', dark:'#A32D2D' }
+  { key:'net-droog',   label:'Niet droog',   fill:'#F7C1C1', dark:'#A32D2D' }
 ];
 const MONTHS = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
 const DAYS = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
@@ -248,13 +248,13 @@ function renderChart(){
   let tD=0,tM=0,tH=0; const pm=[];
   for(let m=0;m<12;m++){
     const days=new Date(cy,m+1,0).getDate(); let d=0,mi=0,h=0;
-    for(let dd=1;dd<=days;dd++){const s=cache[dk(cy,m,dd)];if(s==='droog')d++;else if(s==='minimaal')mi++;else if(s==='helaas')h++;}
+    for(let dd=1;dd<=days;dd++){const s=cache[dk(cy,m,dd)];if(s==='droog')d++;else if(s==='minimaal')mi++;else if(s==='net-droog')h++;}
     tD+=d;tM+=mi;tH+=h;pm.push({d,mi,h});
   }
   document.getElementById('stats').innerHTML=`
     <div class="sc"><div class="sc-l">Droog</div><div class="sc-v vg">${tD}</div></div>
     <div class="sc"><div class="sc-l">Minimaal</div><div class="sc-v vy">${tM}</div></div>
-    <div class="sc"><div class="sc-l">Helaas</div><div class="sc-v vr">${tH}</div></div>`;
+    <div class="sc"><div class="sc-l">Niet droog</div><div class="sc-v vr">${tH}</div></div>`;
   const max=Math.max(1,...pm.map(p=>p.d+p.mi+p.h));
   const bars=document.getElementById('bars'); bars.innerHTML='';
   pm.forEach((p,i)=>{
