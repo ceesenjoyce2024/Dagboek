@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Dagboek">
+<title>Dagboek</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green-fill: #C0DD97; --green-dark: #3B6D11;
+    --yellow-fill: #FAC775; --yellow-dark: #BA7517;
+    --red-fill: #F7C1C1; --red-dark: #A32D2D;
+    --bg: #F7F5F0; --surface: #FFFFFF; --surface2: #F0EDE6;
+    --text: #1A1A18; --text2: #6B6860;
+    --border: rgba(0,0,0,0.09); --radius: 14px; --radius-sm: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151410; --surface: #1F1E1A; --surface2: #2A2925;
+      --text: #F0EDE6; --text2: #9A9890; --border: rgba(255,255,255,0.09);
+      --green-fill: #2A4A0A; --yellow-fill: #3D2800; --red-fill: #3D0A0A;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: env(safe-area-inset-bottom); }
+  .app { max-width: 480px; margin: 0 auto; padding: 0 12px 80px; }
+
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 16px 12px; padding-top: calc(14px + env(safe-area-inset-top)); position: sticky; top: 0; z-index: 10; }
+  .topbar-title { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+  .month-row { display: flex; align-items: center; justify-content: space-between; }
+  .mnav { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .month-name { font-size: 16px; font-weight: 500; }
+
+  .sync-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0 4px; font-size: 12px; color: var(--text2); }
+  .sdot { width: 8px; height: 8px; border-radius: 50%; background: #639922; flex-shrink: 0; }
+  .sdot.busy { background: #BA7517; animation: pulse 1s infinite; }
+  .sdot.err { background: #A32D2D; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+  .refresh-btn { margin-left: auto; padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); font-size: 12px; cursor: pointer; color: var(--text2); font-family: 'DM Sans',sans-serif; }
+
+  .tabs { display: flex; gap: 6px; padding: 10px 0 6px; }
+  .tab { flex: 1; padding: 9px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-family: 'DM Sans',sans-serif; font-weight: 500; cursor: pointer; text-align: center; }
+  .tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+  .legend { display: flex; gap: 14px; padding: 4px 0 10px; flex-wrap: wrap; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); }
+  .ldot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+  .dh { text-align: center; font-size: 11px; font-weight: 500; color: var(--text2); padding: 4px 0; }
+  .cell { aspect-ratio: 1; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden; }
+  .cell.empty { background: transparent; border-color: transparent; cursor: default; }
+  .cell.today { border-color: var(--text); }
+  .cell-bg { position: absolute; inset: 0; opacity: 0.6; }
+  .cell-num { font-size: 13px; color: var(--text2); position: relative; z-index: 1; }
+  .cell.today .cell-num { font-weight: 600; color: var(--text); }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: flex-end; justify-content: center; padding-bottom: env(safe-area-inset-bottom); }
+  .overlay.open { display: flex; }
+  .sheet { background: var(--surface); border-radius: 20px 20px 0 0; padding: 20px 20px calc(24px + env(safe-area-inset-bottom)); width: 100%; max-width: 480px; animation: up .2s ease; }
+  @keyframes up { from{transform:translateY(100%)}to{transform:translateY(0)} }
+  .handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+  .sheet-date { font-size: 15px; font-weight: 600; margin-bottom: 16px; text-transform: capitalize; }
+  .sheet-opts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .sopt { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--radius); border: 1.5px solid var(--border); background: var(--surface2); cursor: pointer; font-size: 15px; font-family: 'DM Sans',sans-serif; font-weight: 500; color: var(--text); }
+  .sopt.sel { border-color: var(--text); }
+  .sopt-dot { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
+  .sheet-btns { display: flex; gap: 8px; }
+  .sbtn { flex: 1; padding: 13px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); font-family: 'DM Sans',sans-serif; font-size: 14px; font-weight: 500; color: var(--text); cursor: pointer; }
+  .sbtn.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .sbtn.danger { color: #A32D2D; }
+
+  .chart-view { display: none; padding-top: 8px; }
+  .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
+  .sc { background: var(--surface); border-radius: var(--radius); padding: 14px 10px; text-align: center; border: 1px solid var(--border); }
+  .sc-l { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .sc-v { font-size: 26px; font-weight: 600; }
+  .vg { color: #3B6D11; } .vy { color: #BA7517; } .vr { color: #A32D2D; }
+  .chart-box { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; }
+  .chart-box h3 { font-size: 13px; color: var(--text2); margin-bottom: 14px; font-weight: 500; }
+  .brow { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .bl { font-size: 11px; color: var(--text2); width: 26px; text-align: right; flex-shrink: 0; }
+  .bt { flex: 1; height: 18px; background: var(--surface2); border-radius: 4px; overflow: hidden; position: relative; }
+  .bf { height: 100%; position: absolute; }
+  .bn { font-size: 11px; color: var(--text2); width: 20px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="topbar-title">Dagboek</div>
+    <div class="month-row">
+      <button class="mnav" id="prev">&#8249;</button>
+      <span class="month-name" id="monthName"></span>
+      <button class="mnav" id="next">&#8250;</button>
+    </div>
+  </div>
+
+  <div class="sync-bar">
+    <div class="sdot busy" id="sdot"></div>
+    <span id="smsg">Verbinden...</span>
+    <button class="refresh-btn" onclick="loadAll()">&#8635; Vernieuwen</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tCal" onclick="setView('cal')">Kalender</button>
+    <button class="tab" id="tChart" onclick="setView('chart')">Grafiek</button>
+  </div>
+
+  <div class="legend">
+    <span class="leg"><span class="ldot" style="background:var(--green-dark)"></span>Droog</span>
+    <span class="leg"><span class="ldot" style="background:var(--yellow-dark)"></span>Minimaal</span>
+    <span class="leg"><span class="ldot" style="background:var(--red-dark)"></span>Helaas</span>
+  </div>
+
+  <div id="calView">
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <div class="chart-view" id="chartView">
+    <div class="stats" id="stats"></div>
+    <div class="chart-box">
+      <h3 id="chartTitle"></h3>
+      <div id="bars"></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-date" id="sheetDate"></div>
+    <div class="sheet-opts" id="sheetOpts"></div>
+    <div class="sheet-btns">
+      <button class="sbtn danger" id="btnWis">Wissen</button>
+      <button class="sbtn" onclick="closeSheet()">Annuleer</button>
+      <button class="sbtn primary" id="btnSave">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, deleteDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA0B3yc_oznvL40JiU367FI6rw05xLGE1o",
+  authDomain: "dagboek-jesper.firebaseapp.com",
+  projectId: "dagboek-jesper",
+  storageBucket: "dagboek-jesper.firebasestorage.app",
+  messagingSenderId: "201186670631",
+  appId: "1:201186670631:web:bf80d22d2901ef44daf602"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+const ST = [
+  { key:'droog',    label:'Droog',    fill:'#C0DD97', dark:'#3B6D11' },
+  { key:'minimaal', label:'Minimaal', fill:'#FAC775', dark:'#BA7517' },
+  { key:'helaas',   label:'Helaas',   fill:'#F7C1C1', dark:'#A32D2D' }
+];
+const MONTHS = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
+const DAYS = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+
+let cache = {};
+let selDay = null, selKey = null;
+const now = new Date();
+let cy = now.getFullYear(), cm = now.getMonth();
+
+function dk(y,m,d){ return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function sync(state, msg){ const d=document.getElementById('sdot'); d.className='sdot'+(state==='busy'?' busy':state==='err'?' err':''); document.getElementById('smsg').textContent=msg; }
+
+window.loadAll = async function() {
+  sync('busy','Laden...');
+  try {
+    const snap = await getDocs(collection(db,'dagboek'));
+    cache = {};
+    snap.forEach(d => { cache[d.id] = d.data().status; });
+    sync('ok','Gesynchroniseerd');
+    renderCal();
+    if(document.getElementById('chartView').style.display==='block') renderChart();
+  } catch(e) { sync('err','Verbinding mislukt'); }
+};
+
+async function saveDay(key, val) {
+  sync('busy','Opslaan...');
+  try {
+    if(val){ await setDoc(doc(db,'dagboek',key),{status:val}); cache[key]=val; }
+    else { await deleteDoc(doc(db,'dagboek',key)); delete cache[key]; }
+    sync('ok','Opgeslagen');
+  } catch(e){ sync('err','Opslaan mislukt'); }
+}
+
+function renderCal(){
+  document.getElementById('monthName').textContent=`${MONTHS[cm]} ${cy}`;
+  const grid=document.getElementById('calGrid'); grid.innerHTML='';
+  DAYS.forEach(d=>{const e=document.createElement('div');e.className='dh';e.textContent=d;grid.appendChild(e);});
+  let dow=new Date(cy,cm,1).getDay(); dow=dow===0?6:dow-1;
+  for(let i=0;i<dow;i++){const e=document.createElement('div');e.className='cell empty';grid.appendChild(e);}
+  const days=new Date(cy,cm+1,0).getDate();
+  for(let d=1;d<=days;d++){
+    const cell=document.createElement('div'); cell.className='cell';
+    if(d===now.getDate()&&cm===now.getMonth()&&cy===now.getFullYear()) cell.classList.add('today');
+    const st=cache[dk(cy,cm,d)];
+    if(st){ const s=ST.find(x=>x.key===st); if(s){const bg=document.createElement('div');bg.className='cell-bg';bg.style.background=s.fill;cell.appendChild(bg);} }
+    const num=document.createElement('div'); num.className='cell-num'; num.textContent=d; cell.appendChild(num);
+    cell.addEventListener('click',()=>openSheet(d));
+    grid.appendChild(cell);
+  }
+}
+
+function openSheet(d){
+  selDay=d; selKey=cache[dk(cy,cm,d)]||null;
+  const dt=new Date(cy,cm,d);
+  document.getElementById('sheetDate').textContent=dt.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
+  const opts=document.getElementById('sheetOpts'); opts.innerHTML='';
+  ST.forEach(s=>{
+    const el=document.createElement('button'); el.className='sopt'+(selKey===s.key?' sel':'');
+    el.innerHTML=`<span class="sopt-dot" style="background:${s.fill};border:2px solid ${s.dark}"></span>${s.label}`;
+    el.onclick=()=>{ selKey=s.key; opts.querySelectorAll('.sopt').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); };
+    opts.appendChild(el);
+  });
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('btnSave').onclick=async()=>{ await saveDay(dk(cy,cm,selDay),selKey); closeSheet(); renderCal(); };
+  document.getElementById('btnWis').onclick=async()=>{ await saveDay(dk(cy,cm,selDay),null); closeSheet(); renderCal(); };
+}
+
+window.closeSheet=function(){ document.getElementById('overlay').classList.remove('open'); };
+document.getElementById('overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('overlay')) closeSheet(); });
+document.getElementById('prev').addEventListener('click',()=>{ cm--; if(cm<0){cm=11;cy--;} renderCal(); });
+document.getElementById('next').addEventListener('click',()=>{ cm++; if(cm>11){cm=0;cy++;} renderCal(); });
+
+window.setView=function(v){
+  document.getElementById('calView').style.display=v==='cal'?'block':'none';
+  document.getElementById('chartView').style.display=v==='chart'?'block':'none';
+  document.getElementById('tCal').classList.toggle('active',v==='cal');
+  document.getElementById('tChart').classList.toggle('active',v==='chart');
+  if(v==='chart') renderChart();
+};
+
+function renderChart(){
+  document.getElementById('chartTitle').textContent=`Dagen per maand — ${cy}`;
+  let tD=0,tM=0,tH=0; const pm=[];
+  for(let m=0;m<12;m++){
+    const days=new Date(cy,m+1,0).getDate(); let d=0,mi=0,h=0;
+    for(let dd=1;dd<=days;dd++){const s=cache[dk(cy,m,dd)];if(s==='droog')d++;else if(s==='minimaal')mi++;else if(s==='helaas')h++;}
+    tD+=d;tM+=mi;tH+=h;pm.push({d,mi,h});
+  }
+  document.getElementById('stats').innerHTML=`
+    <div class="sc"><div class="sc-l">Droog</div><div class="sc-v vg">${tD}</div></div>
+    <div class="sc"><div class="sc-l">Minimaal</div><div class="sc-v vy">${tM}</div></div>
+    <div class="sc"><div class="sc-l">Helaas</div><div class="sc-v vr">${tH}</div></div>`;
+  const max=Math.max(1,...pm.map(p=>p.d+p.mi+p.h));
+  const bars=document.getElementById('bars'); bars.innerHTML='';
+  pm.forEach((p,i)=>{
+    const dP=Math.round(p.d/max*100),mP=Math.round(p.mi/max*100),hP=Math.round(p.h/max*100);
+    const row=document.createElement('div'); row.className='brow';
+    row.innerHTML=`<span class="bl">${MONTHS[i].slice(0,3)}</span>
+      <div class="bt">
+        <div class="bf" style="width:${dP}%;background:#C0DD97;left:0"></div>
+        <div class="bf" style="width:${mP}%;background:#FAC775;left:${dP}%"></div>
+        <div class="bf" style="width:${hP}%;background:#F7C1C1;left:${dP+mP}%"></div>
+      </div><span class="bn">${p.d+p.mi+p.h}</span>`;
+    bars.appendChild(row);
+  });
+}
+
+loadAll();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
