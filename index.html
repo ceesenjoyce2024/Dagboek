@@ -11,8 +11,8 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --green-fill: #C0DD97; --green-dark: #3B6D11;
-    --yellow-fill: #FAC775; --yellow-dark: #BA7517;
+    --green-fill: #7BC67E; --green-dark: #2E7D32;
+    --yellow-fill: #E6EE55; --yellow-dark: #9E9D24;
     --red-fill: #F7C1C1; --red-dark: #A32D2D;
     --bg: #F7F5F0; --surface: #FFFFFF; --surface2: #F0EDE6;
     --text: #1A1A18; --text2: #6B6860;
@@ -22,7 +22,7 @@
     :root {
       --bg: #151410; --surface: #1F1E1A; --surface2: #2A2925;
       --text: #F0EDE6; --text2: #9A9890; --border: rgba(255,255,255,0.09);
-      --green-fill: #2A4A0A; --yellow-fill: #3D2800; --red-fill: #3D0A0A;
+      --green-fill: #1B3A1C; --yellow-fill: #1B1F00; --red-fill: #3D0A0A;
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -37,7 +37,7 @@
 
   .sync-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0 4px; font-size: 12px; color: var(--text2); }
   .sdot { width: 8px; height: 8px; border-radius: 50%; background: #639922; flex-shrink: 0; }
-  .sdot.busy { background: #BA7517; animation: pulse 1s infinite; }
+  .sdot.busy { background: #9E9D24; animation: pulse 1s infinite; }
   .sdot.err { background: #A32D2D; }
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
   .refresh-btn { margin-left: auto; padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); font-size: 12px; cursor: pointer; color: var(--text2); font-family: 'DM Sans',sans-serif; }
@@ -79,7 +79,7 @@
   .sc { background: var(--surface); border-radius: var(--radius); padding: 14px 10px; text-align: center; border: 1px solid var(--border); }
   .sc-l { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
   .sc-v { font-size: 26px; font-weight: 600; }
-  .vg { color: #3B6D11; } .vy { color: #BA7517; } .vr { color: #A32D2D; }
+  .vg { color: #2E7D32; } .vy { color: #9E9D24; } .vr { color: #A32D2D; }
   .chart-box { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; }
   .chart-box h3 { font-size: 13px; color: var(--text2); margin-bottom: 14px; font-weight: 500; }
   .brow { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
@@ -160,8 +160,8 @@ const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
 
 const ST = [
-  { key:'droog',    label:'Droog',    fill:'#C0DD97', dark:'#3B6D11' },
-  { key:'minimaal', label:'Minimaal', fill:'#FAC775', dark:'#BA7517' },
+  { key:'droog',    label:'Droog',    fill:'#7BC67E', dark:'#2E7D32' },
+  { key:'minimaal', label:'Minimaal', fill:'#E6EE55', dark:'#9E9D24' },
   { key:'net-droog',   label:'Niet droog',   fill:'#F7C1C1', dark:'#A32D2D' }
 ];
 const MONTHS = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
@@ -262,8 +262,8 @@ function renderChart(){
     const row=document.createElement('div'); row.className='brow';
     row.innerHTML=`<span class="bl">${MONTHS[i].slice(0,3)}</span>
       <div class="bt">
-        <div class="bf" style="width:${dP}%;background:#C0DD97;left:0"></div>
-        <div class="bf" style="width:${mP}%;background:#FAC775;left:${dP}%"></div>
+        <div class="bf" style="width:${dP}%;background:#7BC67E;left:0"></div>
+        <div class="bf" style="width:${mP}%;background:#E6EE55;left:${dP}%"></div>
         <div class="bf" style="width:${hP}%;background:#F7C1C1;left:${dP+mP}%"></div>
       </div><span class="bn">${p.d+p.mi+p.h}</span>`;
     bars.appendChild(row);
