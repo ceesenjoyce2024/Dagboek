@@ -149,7 +149,7 @@
 const SUPABASE_URL = 'https://hvpooifxqhovskwgzpbr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2cG9vaWZ4cWhvdnNrd2d6cGJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MzQ1MzQsImV4cCI6MjA5NzAxMDUzNH0.zM3vFf6RB7uE4QoLP2uYdPe2AMI9NPJPFWqxQ_M2A3g';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ST = [
   { key:'droog',     label:'Droog',      fill:'#7BC67E', dark:'#2E7D32' },
@@ -177,7 +177,7 @@ function sync(state, msg) {
 window.loadAll = async function () {
   sync('busy', 'Laden...');
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sbClient
       .from('dagboek')
       .select('datum, status');
     if (error) throw error;
@@ -196,13 +196,13 @@ async function saveDay(key, val) {
   sync('busy', 'Opslaan...');
   try {
     if (val) {
-      const { error } = await supabase
+      const { error } = await sbClient
         .from('dagboek')
         .upsert({ datum: key, status: val }, { onConflict: 'datum' });
       if (error) throw error;
       cache[key] = val;
     } else {
-      const { error } = await supabase
+      const { error } = await sbClient
         .from('dagboek')
         .delete()
         .eq('datum', key);
