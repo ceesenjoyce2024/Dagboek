@@ -143,16 +143,14 @@
   </div>
 </div>
 
-<script type="module">
-// ── Supabase configuratie ──────────────────────────────────────────────────
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-
+<!-- Supabase via UMD build: werkt op alle browsers inclusief Safari/iOS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
 const SUPABASE_URL = 'https://hvpooifxqhovskwgzpbr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_V9QoUZIc61tiUZRSTKZchA_YsW5u7VZ';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── Constanten ─────────────────────────────────────────────────────────────
 const ST = [
   { key:'droog',     label:'Droog',      fill:'#7BC67E', dark:'#2E7D32' },
   { key:'minimaal',  label:'Minimaal',   fill:'#E6EE55', dark:'#9E9D24' },
@@ -166,9 +164,8 @@ let selDay = null, selKey = null;
 const now = new Date();
 let cy = now.getFullYear(), cm = now.getMonth();
 
-// ── Hulpfuncties ───────────────────────────────────────────────────────────
 function dk(y, m, d) {
-  return `${y}-${String(m + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  return y + '-' + String(m + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
 }
 
 function sync(state, msg) {
@@ -177,33 +174,28 @@ function sync(state, msg) {
   document.getElementById('smsg').textContent = msg;
 }
 
-// ── Data laden vanuit Supabase ─────────────────────────────────────────────
 window.loadAll = async function () {
   sync('busy', 'Laden...');
   try {
     const { data, error } = await supabase
       .from('dagboek')
       .select('datum, status');
-
     if (error) throw error;
-
     cache = {};
-    data.forEach(row => { cache[row.datum] = row.status; });
+    data.forEach(function(row) { cache[row.datum] = row.status; });
     sync('ok', 'Gesynchroniseerd');
     renderCal();
     if (document.getElementById('chartView').style.display === 'block') renderChart();
-  } catch (e) {
+  } catch(e) {
     console.error(e);
     sync('err', 'Verbinding mislukt');
   }
 };
 
-// ── Data opslaan / verwijderen ─────────────────────────────────────────────
 async function saveDay(key, val) {
   sync('busy', 'Opslaan...');
   try {
     if (val) {
-      // upsert: insert of update op basis van datum (primary key)
       const { error } = await supabase
         .from('dagboek')
         .upsert({ datum: key, status: val }, { onConflict: 'datum' });
@@ -218,25 +210,22 @@ async function saveDay(key, val) {
       delete cache[key];
     }
     sync('ok', 'Opgeslagen');
-  } catch (e) {
+  } catch(e) {
     console.error(e);
     sync('err', 'Opslaan mislukt');
   }
 }
 
-// ── Kalender renderen ──────────────────────────────────────────────────────
 function renderCal() {
-  document.getElementById('monthName').textContent = `${MONTHS[cm]} ${cy}`;
+  document.getElementById('monthName').textContent = MONTHS[cm] + ' ' + cy;
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
-
-  DAYS.forEach(d => {
+  DAYS.forEach(function(d) {
     const e = document.createElement('div');
     e.className = 'dh';
     e.textContent = d;
     grid.appendChild(e);
   });
-
   let dow = new Date(cy, cm, 1).getDay();
   dow = dow === 0 ? 6 : dow - 1;
   for (let i = 0; i < dow; i++) {
@@ -244,17 +233,15 @@ function renderCal() {
     e.className = 'cell empty';
     grid.appendChild(e);
   }
-
   const days = new Date(cy, cm + 1, 0).getDate();
   for (let d = 1; d <= days; d++) {
     const cell = document.createElement('div');
     cell.className = 'cell';
     if (d === now.getDate() && cm === now.getMonth() && cy === now.getFullYear())
       cell.classList.add('today');
-
     const st = cache[dk(cy, cm, d)];
     if (st) {
-      const s = ST.find(x => x.key === st);
+      const s = ST.find(function(x) { return x.key === st; });
       if (s) {
         const bg = document.createElement('div');
         bg.className = 'cell-bg';
@@ -262,71 +249,65 @@ function renderCal() {
         cell.appendChild(bg);
       }
     }
-
     const num = document.createElement('div');
     num.className = 'cell-num';
     num.textContent = d;
     cell.appendChild(num);
-    cell.addEventListener('click', () => openSheet(d));
+    cell.addEventListener('click', (function(day) {
+      return function() { openSheet(day); };
+    })(d));
     grid.appendChild(cell);
   }
 }
 
-// ── Bottom sheet ───────────────────────────────────────────────────────────
 function openSheet(d) {
   selDay = d;
   selKey = cache[dk(cy, cm, d)] || null;
-
   const dt = new Date(cy, cm, d);
   document.getElementById('sheetDate').textContent =
     dt.toLocaleDateString('nl-NL', { weekday:'long', day:'numeric', month:'long' });
-
   const opts = document.getElementById('sheetOpts');
   opts.innerHTML = '';
-  ST.forEach(s => {
+  ST.forEach(function(s) {
     const el = document.createElement('button');
     el.className = 'sopt' + (selKey === s.key ? ' sel' : '');
-    el.innerHTML = `<span class="sopt-dot" style="background:${s.fill};border:2px solid ${s.dark}"></span>${s.label}`;
-    el.onclick = () => {
+    el.innerHTML = '<span class="sopt-dot" style="background:' + s.fill + ';border:2px solid ' + s.dark + '"></span>' + s.label;
+    el.onclick = function() {
       selKey = s.key;
-      opts.querySelectorAll('.sopt').forEach(x => x.classList.remove('sel'));
+      opts.querySelectorAll('.sopt').forEach(function(x) { x.classList.remove('sel'); });
       el.classList.add('sel');
     };
     opts.appendChild(el);
   });
-
   document.getElementById('overlay').classList.add('open');
-
-  document.getElementById('btnSave').onclick = async () => {
+  document.getElementById('btnSave').onclick = async function() {
     await saveDay(dk(cy, cm, selDay), selKey);
     closeSheet();
     renderCal();
   };
-  document.getElementById('btnWis').onclick = async () => {
+  document.getElementById('btnWis').onclick = async function() {
     await saveDay(dk(cy, cm, selDay), null);
     closeSheet();
     renderCal();
   };
 }
 
-window.closeSheet = function () {
+window.closeSheet = function() {
   document.getElementById('overlay').classList.remove('open');
 };
 
-document.getElementById('overlay').addEventListener('click', e => {
+document.getElementById('overlay').addEventListener('click', function(e) {
   if (e.target === document.getElementById('overlay')) closeSheet();
 });
 
-// ── Maand navigatie ────────────────────────────────────────────────────────
-document.getElementById('prev').addEventListener('click', () => {
+document.getElementById('prev').addEventListener('click', function() {
   cm--; if (cm < 0) { cm = 11; cy--; } renderCal();
 });
-document.getElementById('next').addEventListener('click', () => {
+document.getElementById('next').addEventListener('click', function() {
   cm++; if (cm > 11) { cm = 0; cy++; } renderCal();
 });
 
-// ── Tab views ──────────────────────────────────────────────────────────────
-window.setView = function (v) {
+window.setView = function(v) {
   document.getElementById('calView').style.display   = v === 'cal'   ? 'block' : 'none';
   document.getElementById('chartView').style.display = v === 'chart' ? 'block' : 'none';
   document.getElementById('tCal').classList.toggle('active',   v === 'cal');
@@ -334,12 +315,10 @@ window.setView = function (v) {
   if (v === 'chart') renderChart();
 };
 
-// ── Grafiek renderen ───────────────────────────────────────────────────────
 function renderChart() {
-  document.getElementById('chartTitle').textContent = `Dagen per maand — ${cy}`;
+  document.getElementById('chartTitle').textContent = 'Dagen per maand \u2014 ' + cy;
   let tD = 0, tM = 0, tH = 0;
   const pm = [];
-
   for (let m = 0; m < 12; m++) {
     const days = new Date(cy, m + 1, 0).getDate();
     let d = 0, mi = 0, h = 0;
@@ -350,37 +329,33 @@ function renderChart() {
       else if (s === 'net-droog') h++;
     }
     tD += d; tM += mi; tH += h;
-    pm.push({ d, mi, h });
+    pm.push({ d: d, mi: mi, h: h });
   }
-
-  document.getElementById('stats').innerHTML = `
-    <div class="sc"><div class="sc-l">Droog</div><div class="sc-v vg">${tD}</div></div>
-    <div class="sc"><div class="sc-l">Minimaal</div><div class="sc-v vy">${tM}</div></div>
-    <div class="sc"><div class="sc-l">Niet droog</div><div class="sc-v vr">${tH}</div></div>`;
-
-  const max = Math.max(1, ...pm.map(p => p.d + p.mi + p.h));
+  document.getElementById('stats').innerHTML =
+    '<div class="sc"><div class="sc-l">Droog</div><div class="sc-v vg">' + tD + '</div></div>' +
+    '<div class="sc"><div class="sc-l">Minimaal</div><div class="sc-v vy">' + tM + '</div></div>' +
+    '<div class="sc"><div class="sc-l">Niet droog</div><div class="sc-v vr">' + tH + '</div></div>';
+  const max = Math.max(1, ...pm.map(function(p) { return p.d + p.mi + p.h; }));
   const bars = document.getElementById('bars');
   bars.innerHTML = '';
-
-  pm.forEach((p, i) => {
+  pm.forEach(function(p, i) {
     const dP = Math.round(p.d  / max * 100);
     const mP = Math.round(p.mi / max * 100);
     const hP = Math.round(p.h  / max * 100);
     const row = document.createElement('div');
     row.className = 'brow';
-    row.innerHTML = `
-      <span class="bl">${MONTHS[i].slice(0,3)}</span>
-      <div class="bt">
-        <div class="bf" style="width:${dP}%;background:#7BC67E;left:0"></div>
-        <div class="bf" style="width:${mP}%;background:#E6EE55;left:${dP}%"></div>
-        <div class="bf" style="width:${hP}%;background:#F7C1C1;left:${dP + mP}%"></div>
-      </div>
-      <span class="bn">${p.d + p.mi + p.h}</span>`;
+    row.innerHTML =
+      '<span class="bl">' + MONTHS[i].slice(0,3) + '</span>' +
+      '<div class="bt">' +
+        '<div class="bf" style="width:' + dP + '%;background:#7BC67E;left:0"></div>' +
+        '<div class="bf" style="width:' + mP + '%;background:#E6EE55;left:' + dP + '%"></div>' +
+        '<div class="bf" style="width:' + hP + '%;background:#F7C1C1;left:' + (dP + mP) + '%"></div>' +
+      '</div>' +
+      '<span class="bn">' + (p.d + p.mi + p.h) + '</span>';
     bars.appendChild(row);
   });
 }
 
-// ── Start ──────────────────────────────────────────────────────────────────
 loadAll();
 setInterval(loadAll, 30000);
 </script>
