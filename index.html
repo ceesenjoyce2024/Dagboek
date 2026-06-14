@@ -144,132 +144,243 @@
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, deleteDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// ── Supabase configuratie ──────────────────────────────────────────────────
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyA0B3yc_oznvL40JiU367FI6rw05xLGE1o",
-  authDomain: "dagboek-jesper.firebaseapp.com",
-  projectId: "dagboek-jesper",
-  storageBucket: "dagboek-jesper.firebasestorage.app",
-  messagingSenderId: "201186670631",
-  appId: "1:201186670631:web:bf80d22d2901ef44daf602"
-};
+const SUPABASE_URL = 'https://hvpooifxqhovskwgzpbr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_V9QoUZIc61tiUZRSTKZchA_YsW5u7VZ';
 
-const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ── Constanten ─────────────────────────────────────────────────────────────
 const ST = [
-  { key:'droog',    label:'Droog',    fill:'#7BC67E', dark:'#2E7D32' },
-  { key:'minimaal', label:'Minimaal', fill:'#E6EE55', dark:'#9E9D24' },
-  { key:'net-droog',   label:'Niet droog',   fill:'#F7C1C1', dark:'#A32D2D' }
+  { key:'droog',     label:'Droog',      fill:'#7BC67E', dark:'#2E7D32' },
+  { key:'minimaal',  label:'Minimaal',   fill:'#E6EE55', dark:'#9E9D24' },
+  { key:'net-droog', label:'Niet droog', fill:'#F7C1C1', dark:'#A32D2D' }
 ];
 const MONTHS = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
-const DAYS = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+const DAYS   = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
 
 let cache = {};
 let selDay = null, selKey = null;
 const now = new Date();
 let cy = now.getFullYear(), cm = now.getMonth();
 
-function dk(y,m,d){ return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
-function sync(state, msg){ const d=document.getElementById('sdot'); d.className='sdot'+(state==='busy'?' busy':state==='err'?' err':''); document.getElementById('smsg').textContent=msg; }
-
-window.loadAll = async function() {
-  sync('busy','Laden...');
-  try {
-    const snap = await getDocs(collection(db,'dagboek'));
-    cache = {};
-    snap.forEach(d => { cache[d.id] = d.data().status; });
-    sync('ok','Gesynchroniseerd');
-    renderCal();
-    if(document.getElementById('chartView').style.display==='block') renderChart();
-  } catch(e) { sync('err','Verbinding mislukt'); }
-};
-
-async function saveDay(key, val) {
-  sync('busy','Opslaan...');
-  try {
-    if(val){ await setDoc(doc(db,'dagboek',key),{status:val}); cache[key]=val; }
-    else { await deleteDoc(doc(db,'dagboek',key)); delete cache[key]; }
-    sync('ok','Opgeslagen');
-  } catch(e){ sync('err','Opslaan mislukt'); }
+// ── Hulpfuncties ───────────────────────────────────────────────────────────
+function dk(y, m, d) {
+  return `${y}-${String(m + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
 
-function renderCal(){
-  document.getElementById('monthName').textContent=`${MONTHS[cm]} ${cy}`;
-  const grid=document.getElementById('calGrid'); grid.innerHTML='';
-  DAYS.forEach(d=>{const e=document.createElement('div');e.className='dh';e.textContent=d;grid.appendChild(e);});
-  let dow=new Date(cy,cm,1).getDay(); dow=dow===0?6:dow-1;
-  for(let i=0;i<dow;i++){const e=document.createElement('div');e.className='cell empty';grid.appendChild(e);}
-  const days=new Date(cy,cm+1,0).getDate();
-  for(let d=1;d<=days;d++){
-    const cell=document.createElement('div'); cell.className='cell';
-    if(d===now.getDate()&&cm===now.getMonth()&&cy===now.getFullYear()) cell.classList.add('today');
-    const st=cache[dk(cy,cm,d)];
-    if(st){ const s=ST.find(x=>x.key===st); if(s){const bg=document.createElement('div');bg.className='cell-bg';bg.style.background=s.fill;cell.appendChild(bg);} }
-    const num=document.createElement('div'); num.className='cell-num'; num.textContent=d; cell.appendChild(num);
-    cell.addEventListener('click',()=>openSheet(d));
+function sync(state, msg) {
+  const dot = document.getElementById('sdot');
+  dot.className = 'sdot' + (state === 'busy' ? ' busy' : state === 'err' ? ' err' : '');
+  document.getElementById('smsg').textContent = msg;
+}
+
+// ── Data laden vanuit Supabase ─────────────────────────────────────────────
+window.loadAll = async function () {
+  sync('busy', 'Laden...');
+  try {
+    const { data, error } = await supabase
+      .from('dagboek')
+      .select('datum, status');
+
+    if (error) throw error;
+
+    cache = {};
+    data.forEach(row => { cache[row.datum] = row.status; });
+    sync('ok', 'Gesynchroniseerd');
+    renderCal();
+    if (document.getElementById('chartView').style.display === 'block') renderChart();
+  } catch (e) {
+    console.error(e);
+    sync('err', 'Verbinding mislukt');
+  }
+};
+
+// ── Data opslaan / verwijderen ─────────────────────────────────────────────
+async function saveDay(key, val) {
+  sync('busy', 'Opslaan...');
+  try {
+    if (val) {
+      // upsert: insert of update op basis van datum (primary key)
+      const { error } = await supabase
+        .from('dagboek')
+        .upsert({ datum: key, status: val }, { onConflict: 'datum' });
+      if (error) throw error;
+      cache[key] = val;
+    } else {
+      const { error } = await supabase
+        .from('dagboek')
+        .delete()
+        .eq('datum', key);
+      if (error) throw error;
+      delete cache[key];
+    }
+    sync('ok', 'Opgeslagen');
+  } catch (e) {
+    console.error(e);
+    sync('err', 'Opslaan mislukt');
+  }
+}
+
+// ── Kalender renderen ──────────────────────────────────────────────────────
+function renderCal() {
+  document.getElementById('monthName').textContent = `${MONTHS[cm]} ${cy}`;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  DAYS.forEach(d => {
+    const e = document.createElement('div');
+    e.className = 'dh';
+    e.textContent = d;
+    grid.appendChild(e);
+  });
+
+  let dow = new Date(cy, cm, 1).getDay();
+  dow = dow === 0 ? 6 : dow - 1;
+  for (let i = 0; i < dow; i++) {
+    const e = document.createElement('div');
+    e.className = 'cell empty';
+    grid.appendChild(e);
+  }
+
+  const days = new Date(cy, cm + 1, 0).getDate();
+  for (let d = 1; d <= days; d++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (d === now.getDate() && cm === now.getMonth() && cy === now.getFullYear())
+      cell.classList.add('today');
+
+    const st = cache[dk(cy, cm, d)];
+    if (st) {
+      const s = ST.find(x => x.key === st);
+      if (s) {
+        const bg = document.createElement('div');
+        bg.className = 'cell-bg';
+        bg.style.background = s.fill;
+        cell.appendChild(bg);
+      }
+    }
+
+    const num = document.createElement('div');
+    num.className = 'cell-num';
+    num.textContent = d;
+    cell.appendChild(num);
+    cell.addEventListener('click', () => openSheet(d));
     grid.appendChild(cell);
   }
 }
 
-function openSheet(d){
-  selDay=d; selKey=cache[dk(cy,cm,d)]||null;
-  const dt=new Date(cy,cm,d);
-  document.getElementById('sheetDate').textContent=dt.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
-  const opts=document.getElementById('sheetOpts'); opts.innerHTML='';
-  ST.forEach(s=>{
-    const el=document.createElement('button'); el.className='sopt'+(selKey===s.key?' sel':'');
-    el.innerHTML=`<span class="sopt-dot" style="background:${s.fill};border:2px solid ${s.dark}"></span>${s.label}`;
-    el.onclick=()=>{ selKey=s.key; opts.querySelectorAll('.sopt').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); };
+// ── Bottom sheet ───────────────────────────────────────────────────────────
+function openSheet(d) {
+  selDay = d;
+  selKey = cache[dk(cy, cm, d)] || null;
+
+  const dt = new Date(cy, cm, d);
+  document.getElementById('sheetDate').textContent =
+    dt.toLocaleDateString('nl-NL', { weekday:'long', day:'numeric', month:'long' });
+
+  const opts = document.getElementById('sheetOpts');
+  opts.innerHTML = '';
+  ST.forEach(s => {
+    const el = document.createElement('button');
+    el.className = 'sopt' + (selKey === s.key ? ' sel' : '');
+    el.innerHTML = `<span class="sopt-dot" style="background:${s.fill};border:2px solid ${s.dark}"></span>${s.label}`;
+    el.onclick = () => {
+      selKey = s.key;
+      opts.querySelectorAll('.sopt').forEach(x => x.classList.remove('sel'));
+      el.classList.add('sel');
+    };
     opts.appendChild(el);
   });
+
   document.getElementById('overlay').classList.add('open');
-  document.getElementById('btnSave').onclick=async()=>{ await saveDay(dk(cy,cm,selDay),selKey); closeSheet(); renderCal(); };
-  document.getElementById('btnWis').onclick=async()=>{ await saveDay(dk(cy,cm,selDay),null); closeSheet(); renderCal(); };
+
+  document.getElementById('btnSave').onclick = async () => {
+    await saveDay(dk(cy, cm, selDay), selKey);
+    closeSheet();
+    renderCal();
+  };
+  document.getElementById('btnWis').onclick = async () => {
+    await saveDay(dk(cy, cm, selDay), null);
+    closeSheet();
+    renderCal();
+  };
 }
 
-window.closeSheet=function(){ document.getElementById('overlay').classList.remove('open'); };
-document.getElementById('overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('overlay')) closeSheet(); });
-document.getElementById('prev').addEventListener('click',()=>{ cm--; if(cm<0){cm=11;cy--;} renderCal(); });
-document.getElementById('next').addEventListener('click',()=>{ cm++; if(cm>11){cm=0;cy++;} renderCal(); });
-
-window.setView=function(v){
-  document.getElementById('calView').style.display=v==='cal'?'block':'none';
-  document.getElementById('chartView').style.display=v==='chart'?'block':'none';
-  document.getElementById('tCal').classList.toggle('active',v==='cal');
-  document.getElementById('tChart').classList.toggle('active',v==='chart');
-  if(v==='chart') renderChart();
+window.closeSheet = function () {
+  document.getElementById('overlay').classList.remove('open');
 };
 
-function renderChart(){
-  document.getElementById('chartTitle').textContent=`Dagen per maand — ${cy}`;
-  let tD=0,tM=0,tH=0; const pm=[];
-  for(let m=0;m<12;m++){
-    const days=new Date(cy,m+1,0).getDate(); let d=0,mi=0,h=0;
-    for(let dd=1;dd<=days;dd++){const s=cache[dk(cy,m,dd)];if(s==='droog')d++;else if(s==='minimaal')mi++;else if(s==='net-droog')h++;}
-    tD+=d;tM+=mi;tH+=h;pm.push({d,mi,h});
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay')) closeSheet();
+});
+
+// ── Maand navigatie ────────────────────────────────────────────────────────
+document.getElementById('prev').addEventListener('click', () => {
+  cm--; if (cm < 0) { cm = 11; cy--; } renderCal();
+});
+document.getElementById('next').addEventListener('click', () => {
+  cm++; if (cm > 11) { cm = 0; cy++; } renderCal();
+});
+
+// ── Tab views ──────────────────────────────────────────────────────────────
+window.setView = function (v) {
+  document.getElementById('calView').style.display   = v === 'cal'   ? 'block' : 'none';
+  document.getElementById('chartView').style.display = v === 'chart' ? 'block' : 'none';
+  document.getElementById('tCal').classList.toggle('active',   v === 'cal');
+  document.getElementById('tChart').classList.toggle('active', v === 'chart');
+  if (v === 'chart') renderChart();
+};
+
+// ── Grafiek renderen ───────────────────────────────────────────────────────
+function renderChart() {
+  document.getElementById('chartTitle').textContent = `Dagen per maand — ${cy}`;
+  let tD = 0, tM = 0, tH = 0;
+  const pm = [];
+
+  for (let m = 0; m < 12; m++) {
+    const days = new Date(cy, m + 1, 0).getDate();
+    let d = 0, mi = 0, h = 0;
+    for (let dd = 1; dd <= days; dd++) {
+      const s = cache[dk(cy, m, dd)];
+      if (s === 'droog') d++;
+      else if (s === 'minimaal') mi++;
+      else if (s === 'net-droog') h++;
+    }
+    tD += d; tM += mi; tH += h;
+    pm.push({ d, mi, h });
   }
-  document.getElementById('stats').innerHTML=`
+
+  document.getElementById('stats').innerHTML = `
     <div class="sc"><div class="sc-l">Droog</div><div class="sc-v vg">${tD}</div></div>
     <div class="sc"><div class="sc-l">Minimaal</div><div class="sc-v vy">${tM}</div></div>
     <div class="sc"><div class="sc-l">Niet droog</div><div class="sc-v vr">${tH}</div></div>`;
-  const max=Math.max(1,...pm.map(p=>p.d+p.mi+p.h));
-  const bars=document.getElementById('bars'); bars.innerHTML='';
-  pm.forEach((p,i)=>{
-    const dP=Math.round(p.d/max*100),mP=Math.round(p.mi/max*100),hP=Math.round(p.h/max*100);
-    const row=document.createElement('div'); row.className='brow';
-    row.innerHTML=`<span class="bl">${MONTHS[i].slice(0,3)}</span>
+
+  const max = Math.max(1, ...pm.map(p => p.d + p.mi + p.h));
+  const bars = document.getElementById('bars');
+  bars.innerHTML = '';
+
+  pm.forEach((p, i) => {
+    const dP = Math.round(p.d  / max * 100);
+    const mP = Math.round(p.mi / max * 100);
+    const hP = Math.round(p.h  / max * 100);
+    const row = document.createElement('div');
+    row.className = 'brow';
+    row.innerHTML = `
+      <span class="bl">${MONTHS[i].slice(0,3)}</span>
       <div class="bt">
         <div class="bf" style="width:${dP}%;background:#7BC67E;left:0"></div>
         <div class="bf" style="width:${mP}%;background:#E6EE55;left:${dP}%"></div>
-        <div class="bf" style="width:${hP}%;background:#F7C1C1;left:${dP+mP}%"></div>
-      </div><span class="bn">${p.d+p.mi+p.h}</span>`;
+        <div class="bf" style="width:${hP}%;background:#F7C1C1;left:${dP + mP}%"></div>
+      </div>
+      <span class="bn">${p.d + p.mi + p.h}</span>`;
     bars.appendChild(row);
   });
 }
 
+// ── Start ──────────────────────────────────────────────────────────────────
 loadAll();
 setInterval(loadAll, 30000);
 </script>
